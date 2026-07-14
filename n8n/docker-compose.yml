@@ -1,0 +1,41 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=192.168.15.203
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://192.168.15.203:5678/
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - TZ=America/Sao_Paulo
+      - N8N_SECURE_COOKIE=false
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  grafana:
+    image: grafana/grafana:11.5.1
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - TZ=America/Sao_Paulo
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    # Sem porta exposta de propósito: só o n8n fala com ele pela rede interna
+    volumes:
+      - redis_data:/data
+
+volumes:
+  n8n_data:
+  grafana_data:
+  redis_data:

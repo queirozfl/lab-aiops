@@ -1,0 +1,12 @@
+[Unit]
+Description=App Demo Spring Boot (lab AIOps)
+After=network.target
+
+[Service]
+User=appsvc
+ExecStart=/usr/bin/java -Xmx256m -jar /opt/app/app.jar
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

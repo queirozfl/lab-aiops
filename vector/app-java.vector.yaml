@@ -1,0 +1,31 @@
+sources:
+  app_log:
+    type: file
+    include: ["/var/log/app/app.log"]
+    multiline:
+      start_pattern: '^\d{4}-\d{2}-\d{2}'
+      mode: halt_before
+      condition_pattern: '^\d{4}-\d{2}-\d{2}'
+      timeout_ms: 500
+
+transforms:
+  parse_app:
+    type: remap
+    inputs: [app_log]
+    source: |
+      .service = "app-demo"
+      .host_origin = "app-java"
+      if match(string!(.message), r'ERROR') { .level = "error" }
+      else if match(string!(.message), r'WARN') { .level = "warn" }
+      else { .level = "info" }
+
+sinks:
+  loki:
+    type: loki
+    inputs: [parse_app]
+    endpoint: http://192.168.15.202:31000
+    encoding: {codec: text}
+    labels:
+      service: "{{ service }}"
+      host: "{{ host_origin }}"
+      level: "{{ level }}"

@@ -1,0 +1,3 @@
+# /etc/sudoers.d/n8n-automation (na VM alvo da remediação)
+# Validar sempre com: sudo visudo -c
+ops ALL=(root) NOPASSWD: /usr/bin/systemctl restart app-demo, /usr/bin/systemctl status app-demo *, /usr/bin/systemctl is-active app-demo

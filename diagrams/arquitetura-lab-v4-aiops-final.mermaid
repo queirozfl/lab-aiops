@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph HOST["🖥️ Workstation Hyper-V — 16 GB disponíveis p/ lab"]
+        subgraph ZBX["VM zabbix-srv · .200 · 4 GB"]
+            ZS["Zabbix Server 7.4"]
+            ZAPI["Frontend + API :8080"]
+            DB[("MySQL")]
+        end
+        subgraph APP["VM app-java · .201 · 2 GB"]
+            SB["App Spring Boot :8080"]
+            LOG1["📄 /var/log/app/app.log"]
+            A1["Zabbix Agent<br/>log[] ERROR/WARN"]
+            V1["Vector (serviço)"]
+        end
+        subgraph K3S["VM k3s-srv · .202 · 4 GB — Kubernetes"]
+            POD["Pod: microserviço Java"]
+            V2["Vector (DaemonSet)<br/>kubernetes_logs"]
+            LOKI[("Loki<br/>logs centralizados")]
+            A2["Zabbix Agent 2<br/>template K8s"]
+        end
+        subgraph N8N["VM n8n-srv · .203 · 2,5 GB"]
+            WF["n8n :5678"]
+            AG["🤖 AI Agent"]
+            GRAF["Grafana :3000<br/>(container)"]
+        end
+    end
+
+    LLM["☁️ API LLM (Claude/OpenAI)"]
+    TG["📱 Telegram"]
+
+    %% Geração e coleta de logs
+    SB --> LOG1 --> V1
+    POD -- "stdout" --> V2
+    V1 -- "envia logs" --> LOKI
+    V2 -- "envia logs" --> LOKI
+
+    %% Detecção (Zabbix)
+    LOG1 --> A1
+    A1 -- "métricas + trigger de log" --> ZS
+    A2 -- "métricas + estado dos pods" --> ZS
+    ZS --> DB
+
+    %% Fluxo AIOps
+    ZS -- "① alerta (webhook)" --> WF
+    WF --> AG
+    AG -- "② contexto: consulta LogQL" --> LOKI
+    AG -- "③ histórico via API" --> ZAPI
+    AG -- "④ diagnóstico" --> LLM
+    AG -- "⑤ envia análise +<br/>botões ✅/❌" --> TG
+    TG -- "⑥ aprovação humana" --> WF
+    WF -- "⑦ auto-remediação (SSH):<br/>restart serviço, limpar disco" --> APP
+    WF -. "remediação k8s:<br/>kubectl rollout restart" .-> K3S
+
+    %% Visualização
+    GRAF -- "dashboards" --> ZAPI
+    GRAF -- "explora logs" --> LOKI

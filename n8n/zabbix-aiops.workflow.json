@@ -1,0 +1,348 @@
+{
+  "name": "Zabbix AIOps",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zabbix-alerta",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "dd2ae519-371b-41dc-93c5-3048baca34ef",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um analista sênior de operações (SRE) com acesso a ferramentas de investigação. Analise este alerta do Zabbix.\n\nPROCESSO OBRIGATÓRIO:\n1. Use a ferramenta de consulta ao Loki para buscar os logs de erro recentes do host/serviço afetado\n2. Use a ferramenta novamente para verificar se OUTROS serviços apresentam erros ou warnings no mesmo período (correlação)\n3. Só então produza o diagnóstico\n\nFORMATO DO DIAGNÓSTICO (máximo 15 linhas, para Telegram, sem markdown):\n1) O QUE ACONTECEU — com evidências citadas dos logs\n2) CAUSA PROVÁVEL — baseada no que os logs mostram\n3) CORRELAÇÃO — outros serviços afetados no período? (cite o que encontrou, ou \"nenhum outro serviço afetado\")\n4) SEVERIDADE REAL — concorda com a reportada?\n5) AÇÃO RECOMENDADA — específica e acionável\n\nALERTA:\nHost: {{ $json.body.host }}\nTrigger: {{ $json.body.trigger }}\nSeveridade: {{ $json.body.severity }}\nValor capturado: {{ $json.body.item_value }}\nHorário: {{ $json.body.event_time }}\n\nAPÓS o diagnóstico, adicione uma linha final EXATAMENTE neste formato:\nACAO_PROPOSTA: restart_app\nou\nACAO_PROPOSTA: nenhuma\nUse \"restart_app\" apenas se o problema for na aplicação app-demo do host app-java e um restart provavelmente ajudaria (erro recorrente, travamento, esgotamento de recursos). Use \"nenhuma\" caso contrário.\n\nSe houver histórico de incidentes anteriores deste host nesta conversa, considere-o: identifique se o problema é recorrente, compare com os diagnósticos passados e mencione se as conclusões anteriores se confirmam ou mudam.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "57b4dd0a-82c3-48ac-add4-90c7c31bc3e4",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-4-6",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        80,
+        208
+      ],
+      "id": "b484a323-2bd9-41b0-9b8f-99e2bc946f4b",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(anthropicApi) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "SEU_CHAT_ID",
+        "message": "={{ $json.output }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 30,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "456f5695-01f9-4fcf-8625-58f6c283a118",
+      "name": "Send message and wait for response",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(telegramApi) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4f8ec960-dcaf-4119-9c7b-2bf5fedc1b97",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        768,
+        0
+      ],
+      "id": "a2c218d4-d9ba-467e-bed5-803ee92f5f34",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "privateKey",
+        "command": "sudo systemctl restart app-demo && sleep 15 && systemctl is-active app-demo && curl -s -o /dev/null -w \" health=%{http_code}\" http://localhost:8080/health"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        976,
+        -96
+      ],
+      "id": "07ad043d-3ee4-44bc-ad07-02735b91a6d1",
+      "name": "Execute a command",
+      "credentials": {
+        "sshPrivateKey": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(sshPrivateKey) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "=🦾 REMEDIAÇÃO EXECUTADA em app-java\nComando: restart do app-demo\nResultado: {{ $json.stdout }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1184,
+        -96
+      ],
+      "id": "f238f59a-3ce9-49a8-940c-6947da077599",
+      "name": "Send a text message",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(telegramApi) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "SEU_CHAT_ID",
+        "text": "❌ Remediação rejeitada pelo operador. Nenhuma ação executada.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        976,
+        96
+      ],
+      "id": "b8fa5a43-9414-4e02-ba07-63dce0635afc",
+      "name": "Send a text message1",
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(telegramApi) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.host }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.6,
+      "position": [
+        224,
+        208
+      ],
+      "id": "6b6dbae1-0f5c-46c6-bc48-3335029a9804",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "CONFIGURE_NO_SEU_N8N",
+          "name": "(redis) configure sua credencial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Consulta logs centralizados do Loki (todos os serviços do lab: app-demo na VM app-java, micro-pedidos nos pods do Kubernetes). Use para investigar incidentes: buscar logs de erro recentes do serviço afetado, verificar logs de outros serviços no mesmo período para correlação, ou examinar o contexto antes/depois de um evento. O parâmetro \"query\" usa sintaxe LogQL. Exemplos: {host=\"app-java\", level=\"error\"} para erros da app Java; {service=\"micro-pedidos\"} para logs dos pods; {cluster=\"k3s-lab\", level=\"warn\"} para warnings do Kubernetes. Labels disponíveis: service, host, level (info/warn/error), namespace, cluster.\nIMPORTANTE: no parâmetro query, envie APENAS a expressão LogQL pura, ex: {host=\"app-java\", level=\"error\"} — sem aspas externas, sem URL encoding manual.",
+        "url": "http://192.168.15.202:31000/loki/api/v1/query_range",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('parameters0_Value', ``, 'string') }}"
+            },
+            {
+              "name": "limit",
+              "value": "15"
+            },
+            {
+              "name": "start",
+              "value": "={{ Date.now() - 2*60*60*1000 }}000000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        368,
+        208
+      ],
+      "id": "ef146eb1-d560-49bd-a65d-57b782579c40",
+      "name": "Consulta logs centralizados do Loki"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Execute a command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a command": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consulta logs centralizados do Loki": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

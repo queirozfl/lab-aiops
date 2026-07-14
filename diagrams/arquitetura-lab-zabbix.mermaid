@@ -1,0 +1,31 @@
+flowchart TB
+    subgraph HOST["🖥️ Workstation física — Windows + Hyper-V<br/>Xeon E3-1240 v3 · 32 GB RAM · SSD"]
+        subgraph ZBX["VM zabbix-srv — Ubuntu 24.04<br/>2 vCPU · 4 GB RAM · 40 GB (no SSD)"]
+            ZS["Zabbix Server<br/>porta 10051"]
+            FE["Frontend Web (Nginx + PHP)<br/>porta 80"]
+            DB[("MySQL")]
+        end
+        subgraph L1["VM lab-01 (opcional) · 1 GB"]
+            A1["Zabbix Agent<br/>porta 10050"]
+        end
+        subgraph L2["VM lab-02 (opcional) · 1 GB"]
+            A2["Zabbix Agent<br/>porta 10050"]
+        end
+        VSW{{"Switch Virtual (Externo)"}}
+        NIC["Placa de rede física"]
+    end
+
+    LAN["Rede local (roteador/switch)"]
+    PC["💻 Seu computador<br/>navegador → http://IP/zabbix<br/>SSH → porta 22"]
+
+    ZS --> DB
+    FE --> DB
+    ZS -- "coleta" --> A1
+    ZS -- "coleta" --> A2
+
+    ZBX --- VSW
+    L1 --- VSW
+    L2 --- VSW
+    VSW --- NIC
+    NIC --- LAN
+    PC --- LAN

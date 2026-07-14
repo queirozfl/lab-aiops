@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph HOST["🖥️ Workstation física — Windows + Hyper-V · 12 GB livres p/ lab"]
+        subgraph ZBX["VM zabbix-srv · 4 GB<br/>Ubuntu 24.04"]
+            ZS["Zabbix Server"]
+            FE["Frontend + API"]
+            DB[("MySQL")]
+        end
+        subgraph N8N["VM n8n-srv · 2 GB<br/>Docker"]
+            WF["n8n"]
+            AG["🤖 AI Agent"]
+        end
+        subgraph APP["VM app-java · 2 GB"]
+            SB["App Spring Boot<br/>porta 8080"]
+            LOG1["📄 /var/log/app/app.log"]
+            A1["Zabbix Agent<br/>item log[] → ERROR/WARN"]
+        end
+        subgraph K3S["VM k3s-srv · 3 GB — Kubernetes leve"]
+            POD["Pod: microserviço Java<br/>(container)"]
+            LOG2["📄 logs do pod (stdout)"]
+            A2["Zabbix Agent 2<br/>+ template Kubernetes"]
+        end
+        VSW{{"Switch Virtual (Externo)"}}
+    end
+
+    LLM["☁️ API LLM<br/>(Claude / OpenAI)"]
+    NOTIF["📱 Telegram / Slack"]
+    PC["💻 Seu computador"]
+
+    SB --> LOG1
+    LOG1 --> A1
+    POD --> LOG2
+    LOG2 --> A2
+
+    A1 -- "infra + linhas de log" --> ZS
+    A2 -- "infra + logs de pod" --> ZS
+    ZS --> DB
+    FE --> DB
+
+    ZS -- "① trigger (disco, ERROR no log...)<br/>webhook c/ trecho do log" --> WF
+    WF --> AG
+    AG -- "② analisa log + contexto" --> LLM
+    AG -- "③ busca histórico/mais linhas<br/>via API Zabbix" --> FE
+    AG -- "④ diagnóstico: causa provável,<br/>severidade, ação sugerida" --> NOTIF
+
+    ZBX --- VSW
+    N8N --- VSW
+    APP --- VSW
+    K3S --- VSW
+    PC --- VSW
